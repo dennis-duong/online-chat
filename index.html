@@ -4,13 +4,16 @@
     <title>Socket.IO chat</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font: 13px Helvetica, Arial; }
-      form { background: gray; padding: 8px; position: fixed; bottom: 0; width: 100%; }
-      form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
-      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
-      #messages { margin: 0; padding: 0; overflow: auto; position: fixed; bottom: 50px; width: 100%; max-height: 95%;}
-      #messages div { padding: 5px 10px;}
-      /*#messages li:nth-child(odd) { background: #eee; }*/
+      body { font: 15px Helvetica, Arial; }
+      form { padding: 8px; position: fixed; bottom: 0; width: 80%; }
+      form input { border: 1px solid black; padding: 10px; width: 90%; margin-right: .5%; border-radius: 4px }
+      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; border-radius: 4px}
+      #messages { margin: 0; padding: 0; overflow: auto; position: fixed; bottom: 50px; width: 80%; max-height: 95%;}
+      #messages p { padding: 5px 10px;}
+      #messages p:nth-child(odd) { background: #eee; }
+      #userlist_container{ border: 1px solid black; position: fixed; width: 20%; left: 80%; height: 100%; }
+      #userlist {padding: 20px; overflow: auto; position: fixed; bottom: 0; width: 20%; left: 80%; max-height: 100%;}
+      #userlist_title {padding: 20px; overflow: auto; position: fixed; width: 20%; left: 80%;}
     </style>
   </head>
   <script src="/socket.io/socket.io.js"></script>
@@ -18,17 +21,33 @@
   <script>
     $(function() {
       var socket=io(); //loading the socket.io-client
+
       $('form').submit(function(e){
         e.preventDefault(); //prevents the page reloading
         $('#input').val() != "" && socket.emit('chat message', $('#input').val()); //only emit if theres a value in field
         $('#input').val(''); //clear the field
         return false;
       });
-      socket.on('chat message', function(msg) {
-        $('#messages').append("<div>"+msg+"</div>");
+
+      socket.on('chat history', function(chatLogs){
+        chatLogs.forEach(function(log){
+          $('#messages').append("<p>"+log+"</p>");
+        })
       });
+
       socket.on('connection message', function(msg) {
-        $('#messages').append("<div>"+msg+"</div>");
+        $('#messages').append("<p>"+msg+"</p>");
+      });
+
+      socket.on('online users', function(onlineUsers) {
+        $('#userlist').html("");
+        onlineUsers.forEach(function(user){
+          $('#userlist').append("<p>"+user+"</p>");
+        });
+      });
+
+      socket.on('chat message', function(msg) {
+        $('#messages').append("<p>"+msg+"</p>");
       });
     });
   </script>
@@ -37,5 +56,9 @@
     <form action="">
       <input id="input" autocomplete="off" /><button>Send</button>
     </form>
+    <div id=userlist_container>
+      <p id = "userlist_title">Online Users:</p>
+      <div id = "userlist"></div>
+    </div>
   </body>
 </html>
