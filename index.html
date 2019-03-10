@@ -5,10 +5,11 @@
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font: 15px Helvetica, Arial; }
-      form { padding: 8px; position: fixed; bottom: 0; width: 80%; }
+      form { padding: 8px; position: fixed; bottom: 20px; width: 80%; }
       form input { border: 1px solid black; padding: 10px; width: 90%; margin-right: .5%; border-radius: 4px }
       form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; border-radius: 4px}
-      #messages { margin: 0; padding: 0; overflow: auto; position: fixed; bottom: 50px; width: 80%; max-height: 95%;}
+      #messages { margin: 0; padding: 0; overflow: auto; position: fixed; bottom: 70px; width: 80%; max-height: 95%;}
+      #nickname_indicator {position: fixed; bottom: 0; width: 80%; padding-left: 8px; padding-bottom: 5px;}
       #messages p { padding: 5px 10px;}
       #messages p:nth-child(odd) { background: #eee; }
       #userlist_container{ border: 1px solid black; position: fixed; width: 20%; left: 80%; height: 100%; }
@@ -21,22 +22,68 @@
   <script>
     $(function() {
       var socket=io(); //loading the socket.io-client
+      var myNickname;
 
       $('form').submit(function(e){
         e.preventDefault(); //prevents the page reloading
+        var msg = $('#input').val();
+        console.log(msg);
+        var msgSplit = msg.split(' ');
+        console.log(msgSplit);
+        var isNickCom = msgSplit[0]=="/nick"?true:false;
+        var isColorCom = msgSplit[0] == "/nickcolor"?true:false;
+        if (isNickCom || isColorCom) {
+          if(msgSplit.length > 2) {
+            $('#messages').append(`<p style="color: gray">Cannot do command, too many arguments.</p>`);
+            $('#messages').append(`<p style="color: gray">Use: /nick &lt;new nickname&gt; or /nickcolor RRGGBB</p>`);
+            $('#messages').append(`<p style="color: gray">You cannot have spaces in your nickname.</p>`);
+            scrollchat();
+            $('#input').val(''); //clear the field
+            return false;
+          }
+          if (isNickCom) {
+            if(msgSplit[1].length > 20) {
+              $('#messages').append(`<p style="color: gray">Your nickname cannot be longer than 20 characters.</p>`);
+              scrollchat();
+              $('#input').val(''); //clear the field
+              return false;
+            }
+            socket.emit('nick command', msgSplit[1]);  
+            $('#input').val(''); //clear the field
+            return false;
+          }
+          if (isColorCom) {
+            socket.emit('color command', msgSplit[1]);
+            $('#input').val(''); //clear the field
+            return false;
+          }
+        }
         $('#input').val() != "" && socket.emit('chat message', $('#input').val()); //only emit if theres a value in field
         $('#input').val(''); //clear the field
         return false;
       });
+      socket.on('nickname assignment', function(user){
+        myNickname = user.nickname;
+        $('#nickname_indicator').html("");
+        $('#nickname_indicator').append(`<p> Your nickname is: <b><span style="color: #${user.color};">${user.nickname}</span></b> </p>`);
+      });
 
       socket.on('chat history', function(chatLogs){
         chatLogs.forEach(function(log){
-          $('#messages').append("<p>"+log+"</p>");
+          if (log.msg == "has connected."|| log.msg == "has disconnected.") {
+            $('#messages').append("<p>"+formatConMsg(log)+"</p>");
+          } else if (log.nickname == myNickname){
+            $('#messages').append("<p>"+formatMyMsg(log)+"</p>"); 
+          } else {
+            $('#messages').append("<p>"+formatMsg(log)+"</p>");            
+          }
         })
+        scrollchat();
       });
 
       socket.on('connection message', function(msg) {
-        $('#messages').append("<p>"+msg+"</p>");
+        $('#messages').append("<p>"+formatConMsg(msg)+"</p>");
+        scrollchat();
       });
 
       socket.on('online users', function(onlineUsers) {
@@ -46,18 +93,47 @@
         });
       });
 
+      socket.on('info message', function(msg) {
+        $('#messages').append(`<p style="color: gray">${msg}</p>`);
+        scrollchat();
+      });
+
       socket.on('chat message', function(msg) {
-        $('#messages').append("<p>"+msg+"</p>");
+        console.log(msg.nickname + myNickname);
+        if (msg.nickname == myNickname) {
+          $('#messages').append("<p>"+formatMyMsg(msg)+"</p>");
+        } else {
+          $('#messages').append("<p>"+formatMsg(msg)+"</p>");  
+        }
+        scrollchat();
       });
     });
+
+    function formatMsg(user) {
+      return `${user.time} <b><span style="color: #${user.color};">${user.nickname}</span></b>: ${user.msg}`;
+    }
+
+    function formatMyMsg(user) {
+      return `${user.time} <b><span style="color: #${user.color};">${user.nickname}</span>: ${user.msg}</b>`;
+    }
+
+    function formatConMsg(user) {
+      return `<i>${user.time} <span style="color: #${user.color};">${user.nickname}</span> ${user.msg}</i>`;
+    }
+
+    function scrollchat() {
+      $('#messages').scrollTop($('#messages').height());
+    }
+
   </script>
   <body>
     <div id = "messages"> </div>
     <form action="">
       <input id="input" autocomplete="off" /><button>Send</button>
     </form>
+    <div id = "nickname_indicator"> </div>
     <div id=userlist_container>
-      <p id = "userlist_title">Online Users:</p>
+      <p id = "userlist_title"><b>Online Users:</b></p>
       <div id = "userlist"></div>
     </div>
   </body>

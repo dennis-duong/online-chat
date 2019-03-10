@@ -2,7 +2,7 @@ var app = require('express')();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
-var nicknameList = ['John', 'Bob', 'Robert', 'Jane', 'Eve', 'Alice'];
+var nicknameList = ['John', 'Bob', 'Robert', 'Jane', 'Eve', 'Alice', 'Jim', 'Michael', 'Susan', 'Jennifer', 'Paul', 'Dan', 'Dennis', 'Alex', 'Jason', 'Cindy', 'Vivian'];
 var usedNicknames = [];
 
 var chatLogs = [];
@@ -13,33 +13,80 @@ app.get('/', function(req, res){
 
 io.on('connection', function(socket){ //listen for connection event
 
+	var nickname = getNickname();
+	var color = "ff0000";
 	var user = new Object();
-	user.nickname = getNickname();
-	user.color = "red";
+
+	user.nickname = nickname;
+	user.color = color;
+
+
+	socket.emit('nickname assignment', user); //send given nickname
 
 	socket.emit('chat history', chatLogs); //sending chat history array to client
 
-	var connectionMsg = `<b><span style="color: ${user.color};">${user.nickname}</span></b> has connected.`;
-	io.emit('connection message', connectionMsg); //
-	io.emit('online users', usedNicknames);
-	chatLogs.push(connectionMsg);
+	io.emit('online users', usedNicknames); //sending list of online users to client
+
+	var user = new Object();
+	user.nickname = nickname;
+	user.color = color;
+	user.time = getTime();
+	user.msg = "has connected.";
+	io.emit('connection message', user); //sending the connection msg
+	chatLogs.push(user); //logging message
 	console.log(chatLogs);
 
 	socket.on('disconnect', function(){ //listen for disconnect event
-		var disconnectionMsg = `<b><span style="color: ${user.color};">${user.nickname}</span></b> has disconnected.`;
-		io.emit('connection message', disconnectionMsg);
-		chatLogs.push(disconnectionMsg);
+		var user = new Object();
+		user.nickname = nickname;
+		user.color = color;
+		user.time = getTime();
+		user.msg = "has disconnected.";
+		io.emit('connection message', user);
+
+		chatLogs.push(user); //logging message
 		console.log(chatLogs);
-		returnNickname(user.nickname);
-		io.emit('online users', usedNicknames);
+
+		returnNickname(user.nickname); //returning nicknames
+		io.emit('online users', usedNicknames); //update online users to client
 	});
 
 	socket.on('chat message', function(msg){
+		var user = new Object();
+		user.nickname = nickname;
+		user.color = color;
+		user.time = getTime();
 		user.msg = msg;
-		chatLogs.push(formatMsg(user));
-		io.emit('chat message', formatMsg(user));
+		io.emit('chat message', user);
+		
+		chatLogs.push(user); //logging message
 		console.log(chatLogs);
 
+	});
+
+	socket.on('nick command', function(msg) {
+		if(checkNickname(msg)) {
+			socket.emit("info message", "Error, This nickname already exists.");
+		} else {
+			returnNickname(nickname);
+			nickname = msg;
+			var user = new Object();
+			user.nickname = nickname;
+			user.color = color;
+			usedNicknames.push(nickname);
+			socket.emit('nickname assignment', user);
+			socket.emit("info message", `Nickname changed to ${msg}`);
+			io.emit('online users', usedNicknames);
+		}
+	});
+
+	socket.on('color command', function(msg) {
+		color = msg;
+		var user = new Object();
+		user.nickname = nickname;
+		user.color = color;
+		socket.emit('nickname assignment', user);
+		socket.emit("info message", `Nickname color changed to #${msg}`);
 	});
 });
 
@@ -70,7 +117,7 @@ function returnNickname(nickname) {
 	usedNicknames.splice(pos, 1);
 }
 
-function formatMsg(user) {
-	var msg = `${getTime()} <b><span style="color: ${user.color};">${user.nickname}</span></b>: ${user.msg}`;
-	return msg;
+function checkNickname(nickname) {
+	var exists = usedNicknames.indexOf(nickname) !== -1? true: false;
+	return exists;
 }
