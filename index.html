@@ -7,7 +7,7 @@
       body { font: 15px Helvetica, Arial; }
       form { padding: 8px; position: fixed; bottom: 20px; width: 80%; }
       form input { border: 1px solid black; padding: 10px; width: 90%; margin-right: .5%; border-radius: 4px }
-      form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; border-radius: 4px}
+      form button { width: 9%; background: rgb(0, 85, 221); border: none; padding: 10px; border-radius: 4px; font-size: 18px; color: white;}
       #messages { margin: 0; padding: 0; overflow: auto; position: fixed; bottom: 70px; width: 80%; max-height: 95%;}
       #nickname_indicator {position: fixed; bottom: 0; width: 80%; padding-left: 8px; padding-bottom: 5px;}
       #messages p { padding: 5px 10px;}
@@ -64,11 +64,13 @@
       });
       socket.on('nickname assignment', function(user){
         myNickname = user.nickname;
+        document.cookie=`nickCookie=${user.nickname}`;
         $('#nickname_indicator').html("");
         $('#nickname_indicator').append(`<p> Your nickname is: <b><span style="color: #${user.color};">${user.nickname}</span></b> </p>`);
       });
 
       socket.on('chat history', function(chatLogs){
+        $('#messages').html("");
         chatLogs.forEach(function(log){
           if (log.msg == "has connected."|| log.msg == "has disconnected.") {
             $('#messages').append("<p>"+formatConMsg(log)+"</p>");
@@ -124,12 +126,11 @@
     function scrollchat() {
       $('#messages').scrollTop($('#messages').height());
     }
-
   </script>
   <body>
     <div id = "messages"> </div>
     <form action="">
-      <input id="input" autocomplete="off" /><button>Send</button>
+      <input id="input" autocomplete="off" /><button><b>SEND</b></button>
     </form>
     <div id = "nickname_indicator"> </div>
     <div id=userlist_container>

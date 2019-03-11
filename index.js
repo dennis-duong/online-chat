@@ -2,8 +2,9 @@ var app = require('express')();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
-var nicknameList = ['John', 'Bob', 'Robert', 'Jane', 'Eve', 'Alice', 'Jim', 'Michael', 'Susan', 'Jennifer', 'Paul', 'Dan', 'Dennis', 'Alex', 'Jason', 'Cindy', 'Vivian'];
+var nicknameList = ['John', 'Bob', 'Robert', 'Jane', 'Eve', 'Alice', 'Jim', 'Michael', 'Susan', 'Jennifer', 'Paul', 'Dan', 'Dennis', 'Alex', 'Jason', 'Cindy', 'Vivian', 'James', 'Steven', 'Christina', 'Larry', 'Mark', 'Adam', 'Lisa', 'Julie', 'Tony'];
 var usedNicknames = [];
+var savedNicknames = [];
 
 var chatLogs = [];
 
@@ -11,9 +12,20 @@ app.get('/', function(req, res){
 	res.sendFile(__dirname + '/index.html'); //serves the html file to client
 });
 
+
 io.on('connection', function(socket){ //listen for connection event
 
-	var nickname = getNickname();
+	var cookies = socket.client.request.headers.cookie;
+	//console.log(cookies);
+	var cookieList = cookies && cookies.split(';');
+	//console.log(cookieList);
+	var nickCookie = cookieList && cookieList.find(function(cookie) {
+		return cookie.includes("nickCookie=");
+	});
+	console.log(nickCookie);
+	var nickname = nickCookie?getSavedNickname(nickCookie.split('=')[1]):getNewNickname();
+
+	console.log(nickname);
 	var color = "ff0000";
 	var user = new Object();
 
@@ -47,7 +59,7 @@ io.on('connection', function(socket){ //listen for connection event
 		chatLogs.push(user); //logging message
 		console.log(chatLogs);
 
-		returnNickname(user.nickname); //returning nicknames
+		saveNickname(user.nickname);
 		io.emit('online users', usedNicknames); //update online users to client
 	});
 
@@ -66,7 +78,7 @@ io.on('connection', function(socket){ //listen for connection event
 
 	socket.on('nick command', function(msg) {
 		if(checkNickname(msg)) {
-			socket.emit("info message", "Error, This nickname already exists.");
+			socket.emit("info message", "This nickname is in use or is saved by another user.");
 		} else {
 			returnNickname(nickname);
 			nickname = msg;
@@ -102,7 +114,7 @@ function getTime() {
 	return currentTime;
 }
 
-function getNickname() {
+function getNewNickname() {
 	var nickname = "defaultName";
 	if (nicknameList.length>0) {
 		nickname = nicknameList.shift();
@@ -119,5 +131,22 @@ function returnNickname(nickname) {
 
 function checkNickname(nickname) {
 	var exists = usedNicknames.indexOf(nickname) !== -1? true: false;
-	return exists;
+	var isSaved = savedNicknames.indexOf(nickname) !== -1? true: false;
+	if(exists||isSaved) {
+		return true
+	}
+	return false;
+}
+
+function saveNickname(nickname) {
+	savedNicknames.push(nickname);
+	var pos = usedNicknames.indexOf(nickname);
+	usedNicknames.splice(pos, 1);
+}
+
+function getSavedNickname(nickCookie) {
+	usedNicknames.push(nickCookie);		
+	var pos = savedNicknames.indexOf(nickCookie);
+	savedNicknames.splice(pos,1);
+	return nickCookie;
 }
